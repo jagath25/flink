@@ -148,6 +148,11 @@ public class JarHandlerUtils {
                     jarFile, entryClass, programArgs, parallelism, jobId, applicationId);
         }
 
+        /**
+         * Applies the options of the request to the configuration. This does not open the jar, so
+         * callers must additionally call {@link #applyProgramToConfiguration} with the program they
+         * build from this configuration.
+         */
         public void applyToConfiguration(
                 final Configuration configuration,
                 final HandlerRequest<? extends JarRequestBody> request) {
@@ -162,8 +167,15 @@ public class JarHandlerUtils {
                         PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID, jobId.toHexString());
             }
             configuration.set(CoreOptions.DEFAULT_PARALLELISM, parallelism);
+        }
 
-            final PackagedProgram program = toPackagedProgram(configuration);
+        /**
+         * Applies the jars and classpaths of the given program to the configuration. The jars may
+         * include nested libraries extracted by the program, which are only valid until the program
+         * is closed.
+         */
+        public void applyProgramToConfiguration(
+                final Configuration configuration, final PackagedProgram program) {
             ConfigUtils.encodeCollectionToConfig(
                     configuration,
                     PipelineOptions.JARS,

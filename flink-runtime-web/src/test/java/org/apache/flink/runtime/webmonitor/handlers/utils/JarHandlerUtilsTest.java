@@ -23,6 +23,7 @@ import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.webmonitor.handlers.JarPlanRequestBody;
@@ -121,6 +122,25 @@ class JarHandlerUtilsTest {
         final JarHandlerUtils.JarHandlerContext jarHandlerContext =
                 JarHandlerUtils.JarHandlerContext.fromRequest(request, tempDir, LOG);
         assertThat(jarHandlerContext.getParallelism()).isEqualTo(parallelism);
+    }
+
+    @Test
+    void testApplyingRequestConfigurationDoesNotOpenJar() throws Exception {
+        final JarPlanRequestBody requestBody = getDummyJarPlanRequestBody("entry-class", 3, null);
+        final HandlerRequest<JarPlanRequestBody> request = getDummyRequest(requestBody);
+        final JarHandlerUtils.JarHandlerContext context =
+                JarHandlerUtils.JarHandlerContext.fromRequest(request, tempDir, LOG);
+        final Configuration configuration = new Configuration();
+        // Building a program from a missing jar fails, so this only passes if no program is built.
+        assertThat(tempDir.resolve("someJar")).doesNotExist();
+
+        context.applyToConfiguration(configuration, request);
+
+        assertThat(configuration.get(CoreOptions.DEFAULT_PARALLELISM)).isEqualTo(3);
+        assertThat(configuration.get(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID))
+                .isEqualTo(requestBody.getJobId().toHexString());
+        assertThat(configuration.contains(PipelineOptions.JARS)).isFalse();
+        assertThat(configuration.contains(PipelineOptions.CLASSPATHS)).isFalse();
     }
 
     @Test
